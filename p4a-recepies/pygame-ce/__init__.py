@@ -1,5 +1,6 @@
 import os
 from os.path import join, exists
+import re
 import sh
 from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
@@ -18,11 +19,17 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         super().prebuild_arch(arch)
         build_dir = self.get_build_dir(arch.arch)
         with current_directory(build_dir):
-            # 1. Remove pyproject.toml so pip does NOT trigger PEP 517 backend validation
+            # 1. Neutralize [build-system] in pyproject.toml instead of deleting it.
+            # This satisfies get_version.py while stopping pip from enforcing mesonpy.
             pyproject_path = join(build_dir, "pyproject.toml")
             if exists(pyproject_path):
-                os.remove(pyproject_path)
-                print("Removed pyproject.toml to enforce legacy setup.py installation")
+                with open(pyproject_path, "r") as f:
+                    pyproj_content = f.read()
+                # Remove [build-system] section block if present
+                pyproj_content = re.sub(r'\[build-system\][\s\S]*?(?=\n\[|\Z)', '', pyproj_content)
+                with open(pyproject_path, "w") as f:
+                    f.write(pyproj_content)
+                print("Patched pyproject.toml: removed [build-system] block to disable mesonpy backend")
 
             # 2. Patch Setup configuration
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
