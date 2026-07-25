@@ -20,12 +20,12 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         build_dir = self.get_build_dir(arch.arch)
         with current_directory(build_dir):
             # 1. Neutralize [build-system] in pyproject.toml instead of deleting it.
-            # This satisfies get_version.py while stopping pip from enforcing mesonpy.
+            # Keeps get_version.py happy while disabling mesonpy.
             pyproject_path = join(build_dir, "pyproject.toml")
             if exists(pyproject_path):
                 with open(pyproject_path, "r") as f:
                     pyproj_content = f.read()
-                # Remove [build-system] section block if present
+                # Remove [build-system] block if present
                 pyproj_content = re.sub(r'\[build-system\][\s\S]*?(?=\n\[|\Z)', '', pyproj_content)
                 with open(pyproject_path, "w") as f:
                     f.write(pyproj_content)
@@ -96,17 +96,31 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             env = self.get_recipe_env(arch)
         env = dict(env)
         
-        # Disable build isolation so pip reuses the compiled binaries/environment
-        env['PIP_NO_BUILD_ISOLATION'] = '1'
+        # Explicitly instruct pip to disable build isolation & dependencies check
+        env['PIP_NO_BUILD_ISOLATION'] = '0' if False else '1'
         env['PIP_NO_DEPS'] = '1'
 
-        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
+        # Override build_dir context execution to pass --no-build-isolation
+        with current_directory(self.get_build_dir(arch.arch)):
+            hostpython = self._host_recipe.bin_dir
+            shprint(
+                self._host_recipe.pip,
+                'install',
+                '.',
+                '--no-build-isolation',
+                '--no-deps',
+                '--compile',
+                '--target',
+                self.ctx.get_python_install_dir(arch.arch),
+                _env=env
+            )
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
         env['USE_SDL2'] = '1'
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
         return env
 
 recipe = Pygame2Recipe()
