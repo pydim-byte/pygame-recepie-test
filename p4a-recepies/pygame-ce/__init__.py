@@ -1,5 +1,5 @@
 import os
-from os.path import join
+from os.path import join, exists
 import sh
 from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
@@ -16,7 +16,15 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
-        with current_directory(self.get_build_dir(arch.arch)):
+        build_dir = self.get_build_dir(arch.arch)
+        with current_directory(build_dir):
+            # 1. Remove pyproject.toml so pip does NOT trigger PEP 517 backend validation
+            pyproject_path = join(build_dir, "pyproject.toml")
+            if exists(pyproject_path):
+                os.remove(pyproject_path)
+                print("Removed pyproject.toml to enforce legacy setup.py installation")
+
+            # 2. Patch Setup configuration
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
             env = self.get_recipe_env(arch)
             env['ANDROID_ROOT'] = join(self.ctx.ndk.sysroot, 'usr')
@@ -46,6 +54,8 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
                 freetype_includes=""
             )
             open("Setup", "w").write(setup_file)
+
+            # 3. Patch setup.py
             with open("setup.py", "r") as f:
                 content = f.read()
             broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
@@ -53,13 +63,12 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             if broken_line in content:
                 content = content.replace(broken_line, fixed_line)
                 print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
-            else:
-                print("WARNING: spawn patch target not found — check manually")
+            
             avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
             if avx2_patch not in content:
                 content = avx2_patch + content
-                print("Patched pygame-ce setup.py: forced platform.machine() "
-                      "to 'aarch64' to prevent incorrect -mavx2 injection")
+                print("Patched pygame-ce setup.py: forced platform.machine() to 'aarch64'")
+            
             with open("setup.py", "w") as f:
                 f.write(content)
 
@@ -80,14 +89,10 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             env = self.get_recipe_env(arch)
         env = dict(env)
         
-        # Enforce pip flags through environment variables to bypass PEP 517 build isolation
+        # Disable build isolation so pip reuses the compiled binaries/environment
         env['PIP_NO_BUILD_ISOLATION'] = '1'
         env['PIP_NO_DEPS'] = '1'
-        env['PIP_USE_PEP517'] = '0'
 
-        print("Forcing PIP_NO_BUILD_ISOLATION=1, PIP_NO_DEPS=1, and PIP_USE_PEP517=0 in environment")
-        
-        # Call standard p4a signature without invalid keyword arguments
         super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
