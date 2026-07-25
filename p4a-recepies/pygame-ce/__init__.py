@@ -47,10 +47,27 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
+            # --- Patch known pygame-ce bug: distutils.ccompiler.spawn was removed
+            # in modern setuptools. See https://github.com/pygame/pygame/issues/4469
+            broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
+            fixed_line = (
+                "(__import__('subprocess').check_call(cmd, **kwargs) "
+                "if not self.dry_run else None)"
+            )
+            with open("setup.py", "r") as f:
+                content = f.read()
+            if broken_line in content:
+                content = content.replace(broken_line, fixed_line)
+                with open("setup.py", "w") as f:
+                    f.write(content)
+                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
+            else:
+                print("WARNING: pygame-ce setup.py spawn patch target not found — "
+                      "line may have changed, check manually")
+
     def build_compiled_components(self, arch):
-        # By this stage hostpython3 is guaranteed to already be built
-        # (this recipe's build_arch runs after hostpython3's, since every
-        # python-based recipe implicitly needs it to run setup.py).
+        # Guarantee Cython is importable by the exact hostpython interpreter
+        # that will run `setup.py build_ext` for this recipe.
         hostpython_bin = join(
             self.ctx.build_dir, 'other_builds', 'hostpython3', 'desktop',
             'hostpython3', 'native-build', 'root', 'usr', 'local', 'bin', 'python'
