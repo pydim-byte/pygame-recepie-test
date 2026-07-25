@@ -102,28 +102,27 @@ jobs:
       - name: Setup Java 17 required by Gradle
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'  # or 'zulu', 'liberica', etc.
+          distribution: 'temurin'
           java-version: '17'
 
       # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' #set your python version
+          python-version: '3.11'
 
-      # Install pip dependencies
+      # Install pip dependencies (including cython & build tools)
       - name: Install pip dependencies
         run: |
-          pip install --upgrade pip
-          pip install buildozer cython==3.0.11
+          python -m pip install --upgrade pip setuptools wheel
+          pip install "cython<3.0.0"
+          pip install buildozer
 
       # Build with Buildozer
       - name: Build with Buildozer
         id: buildozer
         run: |
           yes | buildozer -v android debug
-        # yes | buildozer -v android release
-        # run this for generating aab (Android App Bundle) [Required by google play]
 
       # Upload artifacts
       - name: Upload APK artifact
