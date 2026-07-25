@@ -38,26 +38,17 @@ version = 0.1
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
 
-requirements = python3,
-    kivy,
-    https://github.com/kivymd/KivyMD/archive/master.zip,
-    materialyoucolor==3.0.3,
-    materialshapes,
-    pycairo,
-    pillow,
-    exceptiongroup,
-    asyncgui,
-    asynckivy,
-    android
+requirements = python3, pygame
+
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
 
 # (str) Presplash of the application
-presplash.filename = %(source.dir)s/images/presplash.png
+#presplash.filename = %(source.dir)s/images/presplash.png
 
 # (str) Icon of the application
-icon.filename = %(source.dir)s/images/favicon.png
+#icon.filename = %(source.dir)s/images/favicon.png
 
 # (list) Supported orientations
 # Valid options are: landscape, portrait, portrait-reverse or landscape-reverse
@@ -340,7 +331,7 @@ p4a.branch = develop
 #p4a.source_dir =
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
-#p4a.local_recipes =
+p4a.local_recipes = ./p4a-recepies
 
 # (str) Filename to the hook for p4a
 #p4a.hook =
