@@ -27,7 +27,6 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
                 pyproj_content = re.sub(r'\[build-system\][\s\S]*?(?=\n\[|\Z)', '', pyproj_content)
                 with open(pyproject_path, "w") as f:
                     f.write(pyproj_content)
-                print("Patched pyproject.toml: removed [build-system] block")
 
             # 2. Patch Setup configuration for SDL2
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
@@ -77,6 +76,7 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
 
     def build_compiled_components(self, arch):
         hostpython_bin = self.hostpython_location
+        # Ensure Cython is installed in hostpython environment
         shprint(
             sh.Command(hostpython_bin),
             '-m', 'pip', 'install', 'cython==3.0.11', '-q',
@@ -88,18 +88,27 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         if env is None:
             env = self.get_recipe_env(arch)
         env = dict(env)
-        # Force pip / setup to run without build isolation while letting
-        # p4a perform its standard package installation and bundling tasks
-        env['PIP_NO_BUILD_ISOLATION'] = '1'
-        env['PIP_NO_DEPS'] = '1'
-        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
+        env['PIP_NO_BUILD_ISOLATION'] = '0' # Disable inside env as well
+        
+        # Override the pip arguments p4a uses to include --no-build-isolation
+        with current_directory(self.get_build_dir(arch.arch)):
+            shprint(
+                self._host_recipe.pip,
+                'install', '.',
+                '--no-build-isolation',
+                '--no-deps',
+                '--compile',
+                '--target', self.ctx.get_python_install_dir(arch.arch),
+                _env=env,
+                _tail=20,
+                _critical=True
+            )
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
         env['USE_SDL2'] = '1'
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
-        env['PIP_NO_BUILD_ISOLATION'] = '1'
         return env
 
 recipe = Pygame2Recipe()
