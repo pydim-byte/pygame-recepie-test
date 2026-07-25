@@ -9,11 +9,11 @@ import sh
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
     version = "2.5.0"
     url = "https://github.com/pygame-community/pygame-ce/archive/refs/tags/{version}.tar.gz"
-    site_packages_name = "pygame-ce"
+    site_packages_name = "pygame"  # Must match the module name inside site-packages!
     name = "pygame-ce"
     depends = ['sdl2', 'sdl2_image', 'sdl2_mixer', 'sdl2_ttf', 'setuptools', 'jpeg', 'png']
     call_hostpython_via_targetpython = False
-    install_in_hostpython = True  # Crucial for p4a stdlib packaging
+    install_in_hostpython = False
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
@@ -83,22 +83,17 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         )
         super().build_compiled_components(arch)
 
-    def install_python_package(self, arch):
-        # We override default pip args to disable build isolation
-        env = self.get_recipe_env(arch)
+    def install_python_package(self, arch, name=None, env=None, is_dir=True):
+        if env is None:
+            env = self.get_recipe_env(arch)
+        env = dict(env)
         
-        # Ensure hostpython's pip uses the host Cython environment directly
-        shprint(
-            self._host_recipe.pip,
-            'install',
-            '.',
-            '--no-build-isolation',  # <--- THIS IS THE KEY FLAG
-            '--no-deps',
-            '--compile',
-            '--target', self.ctx.get_python_install_dir(arch.arch),
-            _env=env,
-            _cwd=self.get_build_dir(arch.arch)
-        )
+        # Inject PIP environment variables to disable build isolation globally
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
+        env['PIP_NO_DEPS'] = '1'
+        
+        # Call super so p4a handles the stdlib bundling and site-packages integration
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
