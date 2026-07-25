@@ -13,7 +13,7 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
     name = "pygame-ce"
     depends = ['sdl2', 'sdl2_image', 'sdl2_mixer', 'sdl2_ttf', 'setuptools', 'jpeg', 'png']
     call_hostpython_via_targetpython = False
-    install_in_hostpython = False
+    install_in_hostpython = True  # Crucial for p4a stdlib packaging
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
@@ -76,7 +76,6 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
 
     def build_compiled_components(self, arch):
         hostpython_bin = self.hostpython_location
-        # Pre-install Cython in hostpython so setuptools can import Cython.Build
         shprint(
             sh.Command(hostpython_bin),
             '-m', 'pip', 'install', 'cython==3.0.11', '-q',
@@ -88,11 +87,10 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         if env is None:
             env = self.get_recipe_env(arch)
         env = dict(env)
-        # Prevent pip from isolating builds when invoked by p4a superclass
-        env['PIP_NO_BUILD_ISOLATION'] = '0'
+        # Disable build isolation so hostpython's cython is used during install
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
         env['PIP_NO_DEPS'] = '1'
         
-        # Let p4a perform the official installation & path bundling
         super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
@@ -100,7 +98,7 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         env['USE_SDL2'] = '1'
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
-        env['PIP_NO_BUILD_ISOLATION'] = '0'
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
         return env
 
 recipe = Pygame2Recipe()
