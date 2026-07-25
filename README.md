@@ -5,3 +5,4 @@ Test with new setup
 
 Made APK that crashs, trying to make working APK
 Trying another APK crash
+Fresh test
