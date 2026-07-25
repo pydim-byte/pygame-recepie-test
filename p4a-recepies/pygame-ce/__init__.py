@@ -1,10 +1,10 @@
 import os
 from os.path import join, exists
 import re
-import sh
 from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
 from pythonforandroid.logger import shprint
+import sh
 
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
     version = "2.5.0"
@@ -12,26 +12,24 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
     site_packages_name = "pygame-ce"
     name = "pygame-ce"
     depends = ['sdl2', 'sdl2_image', 'sdl2_mixer', 'sdl2_ttf', 'setuptools', 'jpeg', 'png']
-    call_hostpython_via_targetpython = False  # Due to setuptools
+    call_hostpython_via_targetpython = False
     install_in_hostpython = False
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
         build_dir = self.get_build_dir(arch.arch)
         with current_directory(build_dir):
-            # 1. Neutralize [build-system] in pyproject.toml instead of deleting it.
-            # Keeps get_version.py happy while disabling mesonpy.
+            # 1. Neutralize [build-system] in pyproject.toml to disable mesonpy
             pyproject_path = join(build_dir, "pyproject.toml")
             if exists(pyproject_path):
                 with open(pyproject_path, "r") as f:
                     pyproj_content = f.read()
-                # Remove [build-system] block if present
                 pyproj_content = re.sub(r'\[build-system\][\s\S]*?(?=\n\[|\Z)', '', pyproj_content)
                 with open(pyproject_path, "w") as f:
                     f.write(pyproj_content)
-                print("Patched pyproject.toml: removed [build-system] block to disable mesonpy backend")
+                print("Patched pyproject.toml: removed [build-system] block")
 
-            # 2. Patch Setup configuration
+            # 2. Patch Setup configuration for SDL2
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
             env = self.get_recipe_env(arch)
             env['ANDROID_ROOT'] = join(self.ctx.ndk.sysroot, 'usr')
@@ -69,12 +67,10 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
             if broken_line in content:
                 content = content.replace(broken_line, fixed_line)
-                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
             
             avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
             if avx2_patch not in content:
                 content = avx2_patch + content
-                print("Patched pygame-ce setup.py: forced platform.machine() to 'aarch64'")
             
             with open("setup.py", "w") as f:
                 f.write(content)
@@ -92,25 +88,11 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         if env is None:
             env = self.get_recipe_env(arch)
         env = dict(env)
-        
+        # Force pip / setup to run without build isolation while letting
+        # p4a perform its standard package installation and bundling tasks
         env['PIP_NO_BUILD_ISOLATION'] = '1'
         env['PIP_NO_DEPS'] = '1'
-
-        with current_directory(self.get_build_dir(arch.arch)):
-            hostpython = sh.Command(self.hostpython_location)
-            shprint(
-                hostpython,
-                '-m',
-                'pip',
-                'install',
-                '.',
-                '--no-build-isolation',
-                '--no-deps',
-                '--compile',
-                '--target',
-                self.ctx.get_python_install_dir(arch.arch),
-                _env=env
-            )
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
