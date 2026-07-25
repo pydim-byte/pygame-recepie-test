@@ -1,10 +1,10 @@
 import os
-from os.path import join, exists
-import re
+from os.path import join
+import sh
 from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
 from pythonforandroid.logger import shprint
-import sh
+
 
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
     version = "2.5.0"
@@ -12,23 +12,12 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
     site_packages_name = "pygame-ce"
     name = "pygame-ce"
     depends = ['sdl2', 'sdl2_image', 'sdl2_mixer', 'sdl2_ttf', 'setuptools', 'jpeg', 'png']
-    call_hostpython_via_targetpython = False
-    install_in_hostpython = True  # Crucial for p4a stdlib packaging
+    call_hostpython_via_targetpython = False  # Due to setuptools
+    install_in_hostpython = False
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
-        build_dir = self.get_build_dir(arch.arch)
-        with current_directory(build_dir):
-            # 1. Neutralize [build-system] in pyproject.toml to disable mesonpy
-            pyproject_path = join(build_dir, "pyproject.toml")
-            if exists(pyproject_path):
-                with open(pyproject_path, "r") as f:
-                    pyproj_content = f.read()
-                pyproj_content = re.sub(r'\[build-system\][\s\S]*?(?=\n\[|\Z)', '', pyproj_content)
-                with open(pyproject_path, "w") as f:
-                    f.write(pyproj_content)
-
-            # 2. Patch Setup configuration for SDL2
+        with current_directory(self.get_build_dir(arch.arch)):
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
             env = self.get_recipe_env(arch)
             env['ANDROID_ROOT'] = join(self.ctx.ndk.sysroot, 'usr')
@@ -59,23 +48,31 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
-            # 3. Patch setup.py
             with open("setup.py", "r") as f:
                 content = f.read()
+
             broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
             fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
             if broken_line in content:
                 content = content.replace(broken_line, fixed_line)
-            
+                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
+            else:
+                print("WARNING: spawn patch target not found — check manually")
+
             avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
             if avx2_patch not in content:
                 content = avx2_patch + content
-            
+                print("Patched pygame-ce setup.py: forced platform.machine() "
+                      "to 'aarch64' to prevent incorrect -mavx2 injection")
+
             with open("setup.py", "w") as f:
                 f.write(content)
 
     def build_compiled_components(self, arch):
-        hostpython_bin = self.hostpython_location
+        hostpython_bin = join(
+            self.ctx.build_dir, 'other_builds', 'hostpython3', 'desktop',
+            'hostpython3', 'native-build', 'root', 'usr', 'local', 'bin', 'python'
+        )
         shprint(
             sh.Command(hostpython_bin),
             '-m', 'pip', 'install', 'cython==3.0.11', '-q',
@@ -83,29 +80,21 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         )
         super().build_compiled_components(arch)
 
-    def install_python_package(self, arch):
-        # We override default pip args to disable build isolation
-        env = self.get_recipe_env(arch)
-        
-        # Ensure hostpython's pip uses the host Cython environment directly
-        shprint(
-            self._host_recipe.pip,
-            'install',
-            '.',
-            '--no-build-isolation',  # <--- THIS IS THE KEY FLAG
-            '--no-deps',
-            '--compile',
-            '--target', self.ctx.get_python_install_dir(arch.arch),
-            _env=env,
-            _cwd=self.get_build_dir(arch.arch)
-        )
+    def install_python_package(self, arch, name=None, env=None, is_dir=True):
+        if env is None:
+            env = self.get_recipe_env(arch)
+        env = dict(env)
+        env['PIP_USE_PEP517'] = '0'
+        print("Forcing PIP_USE_PEP517=0 to bypass Meson build backend "
+              "(avoids running cross-compiled sanity_check binary on the host)")
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
         env['USE_SDL2'] = '1'
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
-        env['PIP_NO_BUILD_ISOLATION'] = '1'
         return env
+
 
 recipe = Pygame2Recipe()
