@@ -5,7 +5,6 @@ from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
 from pythonforandroid.logger import shprint
 
-
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
     version = "2.5.0"
     url = "https://github.com/pygame-community/pygame-ce/archive/refs/tags/{version}.tar.gz"
@@ -47,10 +46,8 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
                 freetype_includes=""
             )
             open("Setup", "w").write(setup_file)
-
             with open("setup.py", "r") as f:
                 content = f.read()
-
             broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
             fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
             if broken_line in content:
@@ -58,13 +55,11 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
                 print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
             else:
                 print("WARNING: spawn patch target not found — check manually")
-
             avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
             if avx2_patch not in content:
                 content = avx2_patch + content
                 print("Patched pygame-ce setup.py: forced platform.machine() "
                       "to 'aarch64' to prevent incorrect -mavx2 injection")
-
             with open("setup.py", "w") as f:
                 f.write(content)
 
@@ -85,9 +80,12 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             env = self.get_recipe_env(arch)
         env = dict(env)
         env['PIP_USE_PEP517'] = '0'
-        print("Forcing PIP_USE_PEP517=0 to bypass Meson build backend "
-              "(avoids running cross-compiled sanity_check binary on the host)")
-        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
+        
+        # Pass flags to pip to prevent isolated build directory creation
+        extra_args = ['--no-build-isolation', '--no-deps']
+        
+        print("Forcing --no-build-isolation and PIP_USE_PEP517=0 to bypass isolated build environment")
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir, extra_args=extra_args)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
@@ -95,6 +93,5 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         env["PYGAME_CROSS_COMPILE"] = "TRUE"
         env["PYGAME_ANDROID"] = "TRUE"
         return env
-
 
 recipe = Pygame2Recipe()
