@@ -1,22 +1,28 @@
 from os.path import join
 import sh
-from pythonforandroid.logger import shprint
+from pythonforandroid.recipe import CompiledComponentsPythonRecipe
 from pythonforandroid.toolchain import current_directory
+from pythonforandroid.logger import shprint
 
 
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
+    """
+    Recipe to build apps based on SDL2-based pygame.
+    .. warning:: Some pygame functionality is still untested, and some
+        dependencies like freetype, postmidi and libjpeg are currently
+        not part of the build. It's usable, but not complete.
+    """
     version = "2.5.0"
     url = "https://github.com/pygame-community/pygame-ce/archive/refs/tags/{version}.tar.gz"
     site_packages_name = "pygame-ce"
     name = "pygame-ce"
     depends = ['sdl2', 'sdl2_image', 'sdl2_mixer', 'sdl2_ttf', 'setuptools', 'jpeg', 'png']
-    call_hostpython_via_targetpython = False
+    call_hostpython_via_targetpython = False  # Due to setuptools
     install_in_hostpython = False
 
     def prebuild_arch(self, arch):
         super().prebuild_arch(arch)
         with current_directory(self.get_build_dir(arch.arch)):
-            # ... your existing Setup.Android.SDL2.in / Setup file generation stays unchanged ...
             setup_template = open(join("buildconfig", "Setup.Android.SDL2.in")).read()
             env = self.get_recipe_env(arch)
             env['ANDROID_ROOT'] = join(self.ctx.ndk.sysroot, 'usr')
@@ -47,8 +53,8 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
-        # --- NEW: guarantee Cython is importable by the exact hostpython
-        # interpreter that will run `setup.py build_ext` for this recipe ---
+        # Guarantee Cython is importable by the exact hostpython interpreter
+        # that will run `setup.py build_ext` for this recipe.
         hostpython_bin = join(
             self.ctx.build_dir, 'other_builds', 'hostpython3', 'desktop',
             'hostpython3', 'native-build', 'root', 'usr', 'local', 'bin', 'python'
