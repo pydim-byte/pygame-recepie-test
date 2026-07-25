@@ -81,20 +81,13 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         super().build_compiled_components(arch)
 
     def install_python_package(self, arch, name=None, env=None, is_dir=True):
-        build_dir = self.get_build_dir(arch.arch)
-        pyproject = join(build_dir, "pyproject.toml")
-        pyproject_backup = pyproject + ".p4a-bak"
-        moved = False
-        if os.path.exists(pyproject):
-            os.rename(pyproject, pyproject_backup)
-            moved = True
-            print("Temporarily moved pyproject.toml aside to force legacy "
-                  "setup.py install (avoids Meson cross-compile sanity check)")
-        try:
-            super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
-        finally:
-            if moved and os.path.exists(pyproject_backup):
-                os.rename(pyproject_backup, pyproject)
+        if env is None:
+            env = self.get_recipe_env(arch)
+        env = dict(env)
+        env['PIP_USE_PEP517'] = '0'
+        print("Forcing PIP_USE_PEP517=0 to bypass Meson build backend "
+              "(avoids running cross-compiled sanity_check binary on the host)")
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
