@@ -50,10 +50,17 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             # --- Patch known pygame-ce bug: distutils.ccompiler.spawn was removed
             # in modern setuptools. See https://github.com/pygame/pygame/issues/4469
             broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
-            fixed_line = (
-                "(__import__('subprocess').check_call(cmd, **kwargs) "
-                "if not self.dry_run else None)"
-            )
+            fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
+            with open("setup.py", "r") as f:
+                content = f.read()
+            if broken_line in content:
+                content = content.replace(broken_line, fixed_line)
+                with open("setup.py", "w") as f:
+                    f.write(content)
+                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
+            else:
+                print("WARNING: pygame-ce setup.py spawn patch target not found — "
+                      "line may have changed, check manually")
             with open("setup.py", "r") as f:
                 content = f.read()
             if broken_line in content:
