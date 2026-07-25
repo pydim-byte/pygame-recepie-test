@@ -83,15 +83,22 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         )
         super().build_compiled_components(arch)
 
-    def install_python_package(self, arch, name=None, env=None, is_dir=True):
-        if env is None:
-            env = self.get_recipe_env(arch)
-        env = dict(env)
-        # Disable build isolation so hostpython's cython is used during install
-        env['PIP_NO_BUILD_ISOLATION'] = '1'
-        env['PIP_NO_DEPS'] = '1'
+    def install_python_package(self, arch):
+        # We override default pip args to disable build isolation
+        env = self.get_recipe_env(arch)
         
-        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
+        # Ensure hostpython's pip uses the host Cython environment directly
+        shprint(
+            self._host_recipe.pip,
+            'install',
+            '.',
+            '--no-build-isolation',  # <--- THIS IS THE KEY FLAG
+            '--no-deps',
+            '--compile',
+            '--target', self.ctx.get_python_install_dir(arch.arch),
+            _env=env,
+            _cwd=self.get_build_dir(arch.arch)
+        )
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
