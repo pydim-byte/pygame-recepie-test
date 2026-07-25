@@ -80,10 +80,7 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
                 f.write(content)
 
     def build_compiled_components(self, arch):
-        hostpython_bin = join(
-            self.ctx.build_dir, 'other_builds', 'hostpython3', 'desktop',
-            'hostpython3', 'native-build', 'root', 'usr', 'local', 'bin', 'python'
-        )
+        hostpython_bin = self.hostpython_location
         shprint(
             sh.Command(hostpython_bin),
             '-m', 'pip', 'install', 'cython==3.0.11', '-q',
@@ -96,15 +93,15 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             env = self.get_recipe_env(arch)
         env = dict(env)
         
-        # Explicitly instruct pip to disable build isolation & dependencies check
-        env['PIP_NO_BUILD_ISOLATION'] = '0' if False else '1'
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
         env['PIP_NO_DEPS'] = '1'
 
-        # Override build_dir context execution to pass --no-build-isolation
         with current_directory(self.get_build_dir(arch.arch)):
-            hostpython = self._host_recipe.bin_dir
+            hostpython = sh.Command(self.hostpython_location)
             shprint(
-                self._host_recipe.pip,
+                hostpython,
+                '-m',
+                'pip',
                 'install',
                 '.',
                 '--no-build-isolation',
