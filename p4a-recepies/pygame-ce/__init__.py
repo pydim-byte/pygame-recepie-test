@@ -47,30 +47,32 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
-            # --- Patch known pygame-ce bug: distutils.ccompiler.spawn was removed
-            # in modern setuptools. See https://github.com/pygame/pygame/issues/4469
+            with open("setup.py", "r") as f:
+                content = f.read()
+
+            # Patch 1: known pygame-ce bug, distutils.ccompiler.spawn removed
+            # in modern setuptools. https://github.com/pygame/pygame/issues/4469
             broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
             fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
-            with open("setup.py", "r") as f:
-                content = f.read()
             if broken_line in content:
                 content = content.replace(broken_line, fixed_line)
-                with open("setup.py", "w") as f:
-                    f.write(content)
                 print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
             else:
-                print("WARNING: pygame-ce setup.py spawn patch target not found — "
-                      "line may have changed, check manually")
-            with open("setup.py", "r") as f:
-                content = f.read()
-            if broken_line in content:
-                content = content.replace(broken_line, fixed_line)
-                with open("setup.py", "w") as f:
-                    f.write(content)
-                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
-            else:
-                print("WARNING: pygame-ce setup.py spawn patch target not found — "
-                      "line may have changed, check manually")
+                print("WARNING: spawn patch target not found — check manually")
+
+            # Patch 2: pygame-ce's AVX2 auto-detection uses platform.machine(),
+            # which reports the BUILD host's arch (x86_64), not the Android
+            # TARGET arch (aarch64). This wrongly injects -mavx2, which the
+            # NDK's clang rejects for an aarch64 target. Force it to report
+            # the target arch so that check evaluates to False.
+            avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
+            if avx2_patch not in content:
+                content = avx2_patch + content
+                print("Patched pygame-ce setup.py: forced platform.machine() "
+                      "to 'aarch64' to prevent incorrect -mavx2 injection")
+
+            with open("setup.py", "w") as f:
+                f.write(content)
 
     def build_compiled_components(self, arch):
         # Guarantee Cython is importable by the exact hostpython interpreter
