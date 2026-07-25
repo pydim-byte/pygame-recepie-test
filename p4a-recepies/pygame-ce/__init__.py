@@ -6,12 +6,6 @@ from pythonforandroid.logger import shprint
 
 
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
-    """
-    Recipe to build apps based on SDL2-based pygame.
-    .. warning:: Some pygame functionality is still untested, and some
-        dependencies like freetype, postmidi and libjpeg are currently
-        not part of the build. It's usable, but not complete.
-    """
     version = "2.5.0"
     url = "https://github.com/pygame-community/pygame-ce/archive/refs/tags/{version}.tar.gz"
     site_packages_name = "pygame-ce"
@@ -53,8 +47,10 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
-        # Guarantee Cython is importable by the exact hostpython interpreter
-        # that will run `setup.py build_ext` for this recipe.
+    def build_compiled_components(self, arch):
+        # By this stage hostpython3 is guaranteed to already be built
+        # (this recipe's build_arch runs after hostpython3's, since every
+        # python-based recipe implicitly needs it to run setup.py).
         hostpython_bin = join(
             self.ctx.build_dir, 'other_builds', 'hostpython3', 'desktop',
             'hostpython3', 'native-build', 'root', 'usr', 'local', 'bin', 'python'
@@ -64,6 +60,7 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             '-m', 'pip', 'install', 'cython==3.0.11', '-q',
             _tail=20, _critical=True
         )
+        super().build_compiled_components(arch)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
