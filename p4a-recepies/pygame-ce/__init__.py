@@ -79,13 +79,16 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
         if env is None:
             env = self.get_recipe_env(arch)
         env = dict(env)
+        
+        # Enforce pip flags through environment variables to bypass PEP 517 build isolation
+        env['PIP_NO_BUILD_ISOLATION'] = '1'
+        env['PIP_NO_DEPS'] = '1'
         env['PIP_USE_PEP517'] = '0'
+
+        print("Forcing PIP_NO_BUILD_ISOLATION=1, PIP_NO_DEPS=1, and PIP_USE_PEP517=0 in environment")
         
-        # Pass flags to pip to prevent isolated build directory creation
-        extra_args = ['--no-build-isolation', '--no-deps']
-        
-        print("Forcing --no-build-isolation and PIP_USE_PEP517=0 to bypass isolated build environment")
-        super().install_python_package(arch, name=name, env=env, is_dir=is_dir, extra_args=extra_args)
+        # Call standard p4a signature without invalid keyword arguments
+        super().install_python_package(arch, name=name, env=env, is_dir=is_dir)
 
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
