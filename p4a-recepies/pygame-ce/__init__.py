@@ -7,7 +7,7 @@ from pythonforandroid.logger import shprint
 
 
 class Pygame2Recipe(CompiledComponentsPythonRecipe):
-    version = "2.5.0"
+    version = "2.4.1"
     url = "https://github.com/pygame-community/pygame-ce/archive/refs/tags/{version}.tar.gz"
     site_packages_name = "pygame-ce"
     name = "pygame-ce"
