@@ -61,12 +61,21 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
-    def get_recipe_env(self, arch):
-        env = super().get_recipe_env(arch)
-        env['USE_SDL2'] = '1'
-        env["PYGAME_CROSS_COMPILE"] = "TRUE"
-        env["PYGAME_ANDROID"] = "TRUE"
-        return env
+def get_recipe_env(self, arch):
+    env = super().get_recipe_env(arch)
+    env['USE_SDL2'] = '1'
+    env["PYGAME_CROSS_COMPILE"] = "TRUE"
+    env["PYGAME_ANDROID"] = "TRUE"
+
+    # call_hostpython_via_targetpython=False means p4a does NOT automatically
+    # put previously-installed packages (e.g. cython) on hostpython's PYTHONPATH.
+    # Add it back manually so `import Cython` works inside setup.py build_ext.
+    python_install_dir = self.ctx.get_python_install_dir(arch.arch)
+    existing_path = env.get('PYTHONPATH', '')
+    env['PYTHONPATH'] = (
+        python_install_dir + (':' + existing_path if existing_path else '')
+    )
+    return env
 
 
 recipe = Pygame2Recipe()
