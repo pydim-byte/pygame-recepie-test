@@ -29,8 +29,7 @@ class Game:
         self.jump_sounds.append(self.jump_sound_2)
         self.jump_sounds.append(self.jump_sound_3)
 
-        self.screen = pygame.Surface((SCREEN_WIDTH,SCREEN_HEIGHT), pygame.SCALED|pygame.FULLSCREEN)
-        self.display = pygame.display.set_mode((DISPLAY_WIDTH,DISPLAY_HEIGHT))
+        self.display = pygame.display.set_mode((DISPLAY_WIDTH,DISPLAY_HEIGHT), pygame.SCALED|pygame.FULLSCREEN)
         self.clock = pygame.time.Clock()
         self.inputs = {pygame.K_LEFT : False, pygame.K_RIGHT : False, pygame.K_UP : False, pygame.K_DOWN : False, pygame.K_SPACE : False, pygame.K_r : False}
         self.world = World()
@@ -133,15 +132,14 @@ class Game:
         self.world.all_sprites.update(dt)
 
     def draw(self,alpha):
-        self.screen.fill((130,200,229))
+        self.display.fill((130,200,229))
         for sprite in self.world.all_sprites:
-            sprite.draw(self.screen,alpha)
-        self.score.draw(self.screen)
+            sprite.draw(self.display,alpha)
+        self.score.draw(self.display)
         if self.state == States.START:
-            self.play_button.draw(self.screen)
+            self.play_button.draw(self.display)
         if self.state == States.RETRY:
-            self.retry_button.draw(self.screen)
-        self.display.blit(pygame.transform.scale(self.screen,self.display.get_size()),(0,0))
+            self.retry_button.draw(self.display)
         pygame.display.flip()
 
     def run(self):
