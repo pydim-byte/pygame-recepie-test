@@ -7,12 +7,10 @@ from src.states import States
 from src.score import Score
 from src.play_button import PlayButton
 from src.retry_button import RetryButton
-from jnius import autoclass
 
 
 class Game:
     def __init__(self):
-        #self.hide_system_bars()
         pygame.init()
         pygame.mixer.init()
 
@@ -39,24 +37,6 @@ class Game:
         self.player_controller = PlayerController(self.world.player.sprite)
         self.physic_manager = PhysicManager(self.world)
         self.state = States.START
-
-    def hide_system_bars(self):
-        try:
-            PythonActivity = autoclass('org.kivy.android.PythonActivity')
-            View = autoclass('android.view.View')
-            activity = PythonActivity.mActivity
-            window = activity.getWindow()
-            decor_view = window.getDecorView()
-            decor_view.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            )
-        except Exception as e:
-            print(f"Could not hide system bars: {e}")
 
     def handle_events(self,event):
         if event.type == pygame.QUIT:
