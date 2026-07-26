@@ -13,7 +13,7 @@ package.domain = org.sampletest
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,ogg,wav,mp3
 
 # (list) List of inclusions using pattern matching
 source.include_patterns = images/*.png
