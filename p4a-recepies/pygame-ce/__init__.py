@@ -64,6 +64,23 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             )
             open("Setup", "w").write(setup_file)
 
+            # Modern setuptools' vendored distutils no longer exposes
+            # ccompiler.spawn the way pygame-ce's setup.py expects, regardless
+            # of pygame-ce version — patch it to call subprocess directly.
+            with open("setup.py", "r") as f:
+                content = f.read()
+
+            broken_line = "distutils.ccompiler.spawn(cmd, dry_run=self.dry_run, **kwargs)"
+            fixed_line = "__import__('subprocess').check_call(cmd, **kwargs)"
+            if broken_line in content:
+                content = content.replace(broken_line, fixed_line)
+                print("Patched pygame-ce setup.py: fixed distutils.ccompiler.spawn call")
+            else:
+                print("WARNING: spawn patch target not found — check manually")
+
+            with open("setup.py", "w") as f:
+                f.write(content)
+
     def get_recipe_env(self, arch):
         env = super().get_recipe_env(arch)
         env['USE_SDL2'] = '1'
