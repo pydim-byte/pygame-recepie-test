@@ -78,6 +78,17 @@ class Pygame2Recipe(CompiledComponentsPythonRecipe):
             else:
                 print("WARNING: spawn patch target not found — check manually")
 
+            # setup.py decides whether to compile AVX2 SIMD blitters based on
+            # platform.machine() of the HOST running the build. On an x86_64
+            # CI runner cross-compiling to aarch64 Android, this wrongly
+            # detects x86_64 and injects '-mavx2', which clang rejects
+            # outright for the aarch64-linux-android target. Spoof it.
+            avx2_patch = "import platform as _p4a_platform\n_p4a_platform.machine = lambda: 'aarch64'\n"
+            if avx2_patch not in content:
+                content = avx2_patch + content
+                print("Patched pygame-ce setup.py: forced platform.machine() "
+                      "to 'aarch64' to prevent incorrect -mavx2 injection")
+
             with open("setup.py", "w") as f:
                 f.write(content)
 
