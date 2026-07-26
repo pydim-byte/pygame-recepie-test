@@ -12,7 +12,7 @@ from jnius import autoclass
 
 class Game:
     def __init__(self):
-        self.hide_system_bars()
+        #self.hide_system_bars()
         pygame.init()
         pygame.mixer.init()
 
